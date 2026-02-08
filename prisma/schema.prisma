@@ -5,10 +5,275 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider = "prisma-client"
+  provider = "prisma-client-js"
   output   = "../src/generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+// ========================================
+// CORE USER (SupaStarter-compatible)
+// ========================================
+model User {
+  id                String    @id @default(cuid())
+  email             String    @unique
+  name              String
+  
+  // SupaStarter fields
+  emailVerified     Boolean   @default(false)
+  image             String?
+  role              UserRole  @default(USER)
+  onboardingComplete Boolean  @default(false)
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  // UNRLSD professional profiles
+  beatmakerProfile        BeatmakerProfile?
+  artistProfile           ArtistProfile?
+  artisticDirectorProfile ArtisticDirectorProfile?
+  labelProfile            LabelProfile?
+  publisherProfile        PublisherProfile?
+  
+  @@index([email])
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+// ========================================
+// BEATMAKER PROFILE
+// ========================================
+model BeatmakerProfile {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  name        String
+  country     String?
+  publisher   String?
+  
+  certifications String[]
+  placedRecords  String[]
+  
+  beats       Beat[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ========================================
+// BEAT (Instrumental)
+// ========================================
+model Beat {
+  id          String      @id @default(cuid())
+  name        String
+  
+  genre       String?
+  bpm         Int?
+  audioFileKey String
+  audioFileSize Int?
+  audioFileDuration Int?
+  coverArtUrl String?
+  
+  beatmaker   BeatmakerProfile @relation(fields: [beatmakerId], references: [id], onDelete: Cascade)
+  beatmakerId String
+  
+  locks       BeatLock[]
+  stems       Stem[]
+  
+  status      BeatStatus @default(AVAILABLE)
+  
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  
+  @@index([beatmakerId])
+  @@index([status])
+  @@index([genre])
+  @@index([bpm])
+}
+
+enum BeatStatus {
+  AVAILABLE
+  TEMP_LOCKED
+  DEFINITIVELY_LOCKED
+}
+
+// ========================================
+// ARTIST PROFILE
+// ========================================
+model ArtistProfile {
+  id                String    @id @default(cuid())
+  userId            String    @unique
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  name              String
+  country           String?
+  recordLabel       String?
+  publisher         String?
+  
+  openToSubmissions Boolean   @default(false)
+  
+  locks             BeatLock[]
+  roster            ArtistRoster[]
+  labelArtists      LabelArtist[]
+  publisherArtists  PublisherArtist[]
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+// ========================================
+// BEAT LOCKING (Core Workflow)
+// ========================================
+model BeatLock {
+  id        String       @id @default(cuid())
+  
+  beat      Beat         @relation(fields: [beatId], references: [id], onDelete: Cascade)
+  beatId    String
+  
+  artist    ArtistProfile @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  artistId  String
+  
+  type      LockType     @default(TEMPORARY)
+  
+  expiresAt DateTime?
+  
+  stemsDelivered Boolean   @default(false)
+  stemsDeadline  DateTime?
+  
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  
+  @@index([beatId])
+  @@index([artistId])
+  @@index([type])
+  @@index([expiresAt])
+}
+
+enum LockType {
+  TEMPORARY
+  DEFINITIVE
+}
+
+// ========================================
+// STEMS
+// ========================================
+model Stem {
+  id          String   @id @default(cuid())
+  
+  beat        Beat     @relation(fields: [beatId], references: [id], onDelete: Cascade)
+  beatId      String
+  
+  name        String
+  fileKey     String
+  fileSize    Int
+  
+  createdAt   DateTime @default(now())
+  
+  @@index([beatId])
+}
+
+// ========================================
+// ARTISTIC DIRECTOR PROFILE
+// ========================================
+model ArtisticDirectorProfile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  name            String
+  associatedOrg   String?
+  country         String?
+  
+  roster          ArtistRoster[]
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model ArtistRoster {
+  id              String                   @id @default(cuid())
+  
+  director        ArtisticDirectorProfile  @relation(fields: [directorId], references: [id])
+  directorId      String
+  
+  artist          ArtistProfile            @relation(fields: [artistId], references: [id])
+  artistId        String
+  
+  createdAt       DateTime                 @default(now())
+  
+  @@unique([directorId, artistId])
+  @@index([directorId])
+  @@index([artistId])
+}
+
+// ========================================
+// LABEL PROFILE
+// ========================================
+model LabelProfile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  name      String
+  country   String?
+  
+  artists   LabelArtist[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model LabelArtist {
+  id        String        @id @default(cuid())
+  
+  label     LabelProfile  @relation(fields: [labelId], references: [id])
+  labelId   String
+  
+  artist    ArtistProfile @relation(fields: [artistId], references: [id])
+  artistId  String
+  
+  createdAt DateTime      @default(now())
+  
+  @@unique([labelId, artistId])
+  @@index([labelId])
+  @@index([artistId])
+}
+
+// ========================================
+// PUBLISHER PROFILE
+// ========================================
+model PublisherProfile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  name      String
+  country   String?
+  
+  artists   PublisherArtist[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PublisherArtist {
+  id          String           @id @default(cuid())
+  
+  publisher   PublisherProfile @relation(fields: [publisherId], references: [id])
+  publisherId String
+  
+  artist      ArtistProfile    @relation(fields: [artistId], references: [id])
+  artistId    String
+  
+  createdAt   DateTime         @default(now())
+  
+  @@unique([publisherId, artistId])
+  @@index([publisherId])
+  @@index([artistId])
 }
