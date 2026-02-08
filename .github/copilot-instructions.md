@@ -77,6 +77,35 @@ One `User` can have multiple professional profiles (beatmaker, artist, artistic 
 - `BeatLock.stemsDeadline`: 5 days from definitive lock creation
 - `BeatLock.expiresAt`: for temporary locks (7-day duration)
 
+### Organizations & Team Structure (Future Integration)
+The platform will integrate SupaStarter's Organizations feature for Labels and Publishers operating as teams:
+
+**Current POC Architecture** (profile-based):
+- Labels/Publishers are reference entities (name, country, artist list)
+- Artistic Directors linked to labels via `associatedOrg` string field
+- Artists linked to labels via `recordLabel` string field
+
+**Planned Organization Architecture** (when integrating SupaStarter):
+- **Organizations**: Record Labels and Music Publishers as multi-user entities
+- **Org Members**: A&R teams, label staff, artistic directors (employees)
+- **Signed Artists**: Artists with `organizationId` (signed) vs `null` (independent)
+- **Data Isolation**: Universal can only see their roster, Sony sees theirs
+- **Team Collaboration**: Multiple A&R directors managing different roster segments
+
+**Profile + Organization Hybrid Model:**
+```
+Individual Actors (Profile Only):
+- Beatmakers: Always independent, no org membership
+- Independent Artists: No label, operate autonomously
+
+Organizational Actors (Profile + Org):
+- Labels/Publishers: Organization with team members
+- Artistic Directors: Profile + org member (work FOR a label)
+- Signed Artists: Profile + org member (signed TO a label)
+```
+
+**Key Design Principle**: Profiles = professional identity; Organizations = team/company structure. Both coexist for different purposes.
+
 ### Role-Based Permissions
 **Beatmakers** can:
 - Upload and manage instrumentals (catalog of 150-500/year typical)
@@ -166,9 +195,11 @@ Most relations use `onDelete: Cascade` - deleting a User cascades to all profile
 7. **Standalone scripts** - Must include `import 'dotenv/config'` at the top to load environment variables
 8. **Permission checks** - Beatmakers can only send to artists with `openToSubmissions: true`; artistic directors bypass this
 9. **Locking restrictions** - Only Artists can create locks; beatmakers and directors cannot lock beats
+10. **Organizations timing** - Current schema uses string fields for labels/publishers; Organizations will be added when migrating to SupaStarter template
 
 ## External Integrations
 - **SupaStarter compatibility** - User model includes fields (emailVerified, onboardingComplete) for future auth integration
+- **SupaStarter Organizations** - Will be used for Labels/Publishers as team entities; disable initially for MVP, enable when first enterprise client onboards
 - **File storage** - Beat audio (`audioFileKey`) and stems (`fileKey`) reference external storage (S3/similar, not yet implemented)
 
 ## When Making Changes
