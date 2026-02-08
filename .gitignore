@@ -42,3 +42,5 @@ next-env.d.ts
 
 .ai
 .private
+
+/src/generated/prisma
